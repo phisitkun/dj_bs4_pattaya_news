@@ -9,7 +9,7 @@ response = requests.get(url)
 if response.status_code == 200:
     soup = BeautifulSoup(response.text, 'html.parser')
     posts = soup.find_all('div', class_='td-block-row')
-    news = []
+    news = {}
     for post in posts:
         # get content by post
         try:
@@ -19,7 +19,6 @@ if response.status_code == 200:
             print("title => ",title)
             print("content => ",content)
             print("links => ",links)
-            print('\n\n')
         except:
                 pass
         
@@ -28,7 +27,7 @@ if response.status_code == 200:
         # news.append(content)
         # news.append(content)
         
-        print(news)
+        
         
 else:
     print(f"Failed to fetch content. Status code: {response.status_code}")
