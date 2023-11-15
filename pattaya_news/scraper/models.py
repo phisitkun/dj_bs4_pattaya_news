@@ -5,6 +5,7 @@ from cloudinary import CloudinaryImage
 
 class PageContent(models.Model):
     url = models.URLField()
+    title = models.CharField(max_length=150)
     content = models.TextField()
     json=models.JSONField()
 
