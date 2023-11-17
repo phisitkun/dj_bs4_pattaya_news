@@ -2,7 +2,7 @@
 
 import requests
 from bs4 import BeautifulSoup
-from datetime import date,datetime
+from datetime import date, datetime, timedelta
 import json
 import os
 import django
@@ -18,22 +18,9 @@ today = date.today()
 def get_content(link):
     response = requests.get(link)
     soup = BeautifulSoup(response.text, 'html.parser')
-    # Extract content based on the HTML structure of the WordPress blog
+    content = soup.find('p').text
 
-    # Example: Extracting post title
-    title = post.find('h1', class_='post-title').text.strip()
-
-    # Example: Extracting post content
-    content = post.find('p', class_='post-content').text.strip()
-    # entrydate = post.find('time', class_='entry-date').text.strip()
-    
-    print("title => ",title)
-    print("content => ",content)
-    
-    
-
-
-    return title, content
+    return content
 
 
 if response.status_code == 200:
@@ -44,7 +31,7 @@ if response.status_code == 200:
         # get content by post
         try:
             title = post.find('h3', attrs={"class":"entry-title"}).text
-            content = post.find('div',attrs={"class":"td-excerpt"}).text
+            # content = post.find('div',attrs={"class":"td-excerpt"}).text
             links = post.find('h3',attrs={"class":"entry-title"}).find('a').get('href')
             entrydate = post.find('time', class_='entry-date').text.strip()
             # json_data = {
@@ -53,19 +40,32 @@ if response.status_code == 200:
             # 'link': link,
             # }
             
-            # print("title => ",title)
-            # print("content => ",content)
-            # print("links => ",links)
-            # print("Today's date:", today)
+            # print(type(date_obj))
+            
+            content = get_content(links)
+                        
+            print("title => ",title)
+            print("content => ",content)
+            print("links => ",links)
+            
+            print("Today's date:", today)
             print("entry-date => ",entrydate)
             
             datetime_str = '09/21/22 13:55:26'
-            date_format = '%Y-%m-%d %H:%M:%S'
+            date_format = '%A, %d %B %Y, %H:%M'
 
-            datetime_object = datetime.strptime(datetime_str, '%m/%d/%y %H:%M:%S')
-            print(type(datetime_object))
-            print("datetime_object => ",datetime_object.strftime("%A, %d %B %Y, %H:%M"))  # printed in default format
+            date_obj = datetime.strptime(entrydate, date_format)
 
+            print("datetime_convert => ",date_obj)
+
+            
+            today = datetime.now().replace(microsecond=0)
+            
+            future_date_30days = date_obj + timedelta(days=30)
+            print("future_date_30days => ",future_date_30days)
+            
+            past_date_30days = date_obj - timedelta(days=30)
+            print("past_date_30days => ",past_date_30days)
             
             print("---------------------END---------------------\n")
             
