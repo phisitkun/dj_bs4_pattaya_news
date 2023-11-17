@@ -10,31 +10,56 @@ import django
 # django.setup()
 # from scraper.models import News
 
-url = 'https://thepattayanews.com'
-response = requests.get(url)
-today = date.today()
 
-# get content form link url
+
+############################## 
+# Function Remove HTML Tag
+##############################
+#
+def remove_html_tags(text):
+    """Remove html tags from a string"""
+    import re
+    clean = re.compile('<.*?>')
+    return re.sub(clean, '', text)
+
+##############################
+# Get content from Link URL
+##############################
+#
 def get_content_json(link):
     response = requests.get(link)
     soup = BeautifulSoup(response.text, 'html.parser')
     title = soup.find('h1', attrs={"class":"entry-title"}).text
-    content = soup.find('p').text
+    # content = soup.find('p').text
+    content = soup.find_all(["h3", "p"])
     
+    # Convert Array to String
+    content_str = ''.join(map(str, content))
+    
+    content_final = remove_html_tags(content_str)
+     
     json_data = {
             'title': title,
-            'content': content,
+            'content': content_final,
             'link': link,
             }
     
     return_data = {
         'title' : title,
-        'content' : content,
+        'content' : content_final,
         'json_data' : json_data
     }
     
     return return_data
 
+
+###########################################
+##### Start Get Info from Website URL #####
+###########################################
+#
+url = 'https://thepattayanews.com'
+response = requests.get(url)
+today = date.today()
 
 if response.status_code == 200:
     soup = BeautifulSoup(response.text, 'html.parser')
@@ -78,7 +103,7 @@ if response.status_code == 200:
             
             print("---------------------END---------------------\n\n\n")
             
-            title, content = get_content(links)
+            title, content = get_content_json(links)
             # print("json_data => ",json_data)
         except:
                 pass
