@@ -5,7 +5,7 @@ from cloudinary.models import CloudinaryField
 from cloudinary import CloudinaryImage
 
 class PageContent(models.Model):
-    url = models.URLField()
+    url = models.URLField(unique=True)
     title = models.CharField(max_length=150)
     content = models.TextField()
     entry_date = models.DateTimeField(default=datetime.now)
