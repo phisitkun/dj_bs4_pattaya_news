@@ -28,6 +28,7 @@ def create_connection():
 
 
 
+
 ############################## 
 # Function Remove HTML Tag
 ##############################
@@ -36,6 +37,8 @@ def remove_html_tags(text):
     """Remove html tags from a string"""
     clean = re.compile('<.*?>')
     return re.sub(clean, '', text)
+
+
 
 
 ############################## 
@@ -50,6 +53,7 @@ def convert_to_json(py_object):
         # Handle the exception as needed
         print(f"Error converting to JSON: {e}")
         return None
+
 
 
 
@@ -82,17 +86,10 @@ def get_content_json(link):
             'entry_date': datetimestamp,
             }
     
-    json_data = convert_to_json(obj_data)
-    
-    print("\n\n\njson_data => ",json_data)    
-    
-    # return_data = {
-    #     'title' : title,
-    #     'content' : content_final,
-    #     'json_data' : json_data
-    # }
+    json_data = convert_to_json(obj_data)  
     
     return json_data
+
 
 
 
@@ -101,22 +98,20 @@ def get_content_json(link):
 # Function to insert news into the PostgreSQL database
 ############################################################
 #
-def insert_news(cursor, title, content, entry_date, link):
-    query = "INSERT INTO scraper_pagecontent (url, title, content, json, entry_date) VALUES (%s, %s, %s, %s) RETURNING id"
-    cursor.execute(query, (cursor, title, content, entry_date, link))
-    return cursor.fetchone()[0]
-
+def insert_news(cursor, short_link, title, content, json, entry_date):
+    query = "INSERT INTO scraper_pagecontent (url, title, content, json, entry_date) VALUES (%s, %s, %s, %s, %s) RETURNING title"
+    cursor.execute(query, (short_link, title, content, json, entry_date))
     
-# Extract news information from the website
-news_entries = {} #LIST for Insert to DATABASE
+    connection.commit()
+    
+    return cursor.fetchone()[0]
 
 # Create a connection to the PostgreSQL database
 connection = create_connection()
 
-if connection:
-    print("Database Connected!!")       
-else: 
-    print("Database Connect Failed!!")
+cursor = connection.cursor()
+
+
 
 
 ###########################################
@@ -127,13 +122,6 @@ url = 'https://thepattayanews.com'
 response = requests.get(url)
 today = date.today()
 news_entries = {} # Variable for news insert to DB
-
-class NewsEntry:
-            def __init__(self, title, content, entry_date, link):
-                self.title = title
-                self.content = content
-                self.entry_date = entry_date
-                self.link = link
 
 if response.status_code == 200:
     soup = BeautifulSoup(response.text, 'html.parser')
@@ -148,57 +136,41 @@ if response.status_code == 200:
         try:
             
             title = post.find('h3', attrs={"class":"entry-title"}).text
-            # content = post.find('div',attrs={"class":"td-excerpt"}).text
             link = post.find('h3',attrs={"class":"entry-title"}).find('a').get('href')
             entry_date = post.find('time', class_='entry-date').text.strip()
             
-            content = get_content_json(link)
+            json_data = get_content_json(link)
+            news = json.loads(json_data)
             
             news = {
-                    'title':title, 
-                    'content':content['content'], 
-                    'entry_date':content['json_data']['entry_date'], 
-                    'short_link':content['json_data']['short_link'],
-                    'json_data':content['json_data']
+                    'title':news['title'], 
+                    'content':news['content'], 
+                    'entry_date':news['entry_date'], 
+                    'short_link':news['short_link'],
+                    'json_data':json_data,
                     }
             
-            print("news lists => ",news)
             
-            news_id = insert_news(cursor, title, content['content'], content['json_data']['entry_date'], content['json_data']['short_link'])
-            print(f"Inserted news with ID {news_id}")
+            news_title = insert_news(cursor, news['short_link'], news['title'], news['content'], json_data, news['entry_date'])
+            
+
+            
+            
+            print("\nadd News ",total," title => ",news_title)
             
                         
             # print("\nnew no. => ",total)
             # print("title => ",title)
-            # print("content => ",content['content'])
-            # print("entry-date => ",content['json_data']['entry_date'])
+            # print("content => ",json_data['content'])
+            # print("entry-date => ",json_data['entry_date'])
             # # print("links => ",link)
-            # print("short_link => ",content['json_data']['short_link'])
+            # print("short_link => ",json_data['short_link'])
             
             # print("\n---------------------JSON ",total,"---------------------")
             # print("\njson => ",content['json_data'])  
             
-            # print("\n---------------------DATE for CHECK---------------------")
-            # date_format = '%A, %d %B %Y, %H:%M'
-            # date_obj = datetime.strptime(entry_date, date_format)
-
-            # print("datetime_convert => ",date_obj)
-            
-            # today = datetime.now().replace(microsecond=0)
-            
-            # future_date_30days = date_obj + timedelta(days=30)
-            # print("future_date_30days => ",future_date_30days)
-            
-            # past_date_30days = date_obj - timedelta(days=30)
-            # print("past_date_30days => ",past_date_30days)
-            
             # print("---------------------END---------------------\n\n\n")
-            
-
-            
-            
-            
-            
+             
             
             ### Call Function Connect Database and Insert to PostgreSQL database ###                     
             
