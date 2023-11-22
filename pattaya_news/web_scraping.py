@@ -1,10 +1,12 @@
 #### scrape_only ####
 
-import requests, csv
 from bs4 import BeautifulSoup
 from datetime import date, datetime, timedelta
+from cloudinary import CloudinaryImage, uploader
 import psycopg2
 import re
+import requests
+import validators
 import json
 
 
@@ -66,8 +68,29 @@ def get_content_json(link):
     soup = BeautifulSoup(response.text, 'html.parser')
     title = soup.find('h1', attrs={"class":"entry-title"}).text
     short_link = soup.find('link',{'rel':'shortlink'}).get('href')
+    img_url = soup.find('img', attrs={"class":"entry-thumb"})['src']
     content = soup.find_all(["h3", "p"])
     entry_date = post.find('time', class_='entry-date').text.strip()
+    
+    # Check content
+    if (content != None):
+        try:
+            content = content
+        except:
+            pass
+    else:
+        pass
+        
+    # Check image URL
+    if img_url != None:
+        if validators.url(img_url):
+            try:
+                img_url = uploader.upload(img_url)
+                img_url = img_url["public_id"]
+            except:
+                pass
+        else:
+            pass
     
     # Convert Array to String
     content_str = ''.join(map(str, content))
@@ -81,10 +104,13 @@ def get_content_json(link):
     
     obj_data = {
             'title': title,
+            'img_url' : img_url,
             'short_link': short_link,
             'content': content_final,
             'entry_date': datetimestamp,
             }
+    
+    print("\njson_data => ",obj_data)
     
     json_data = convert_to_json(obj_data)  
     
@@ -98,9 +124,9 @@ def get_content_json(link):
 # Function to insert news into the PostgreSQL database
 ############################################################
 #
-def insert_news(cursor, short_link, title, content, json, entry_date):
-    query = "INSERT INTO scraper_pagecontent (url, title, content, json, entry_date) VALUES (%s, %s, %s, %s, %s) RETURNING title"
-    cursor.execute(query, (short_link, title, content, json, entry_date))
+def insert_news(cursor, short_link, title, content, img_url, json, entry_date):
+    query = "INSERT INTO scraper_pagecontent (url, title, content, img_url, json, entry_date) VALUES (%s, %s, %s, %s, %s, %s) RETURNING title"
+    cursor.execute(query, (short_link, title, content, img_url, json, entry_date))
     
     connection.commit()
     
@@ -145,13 +171,14 @@ if response.status_code == 200:
             news = {
                     'title':news['title'], 
                     'content':news['content'], 
+                    'img_url':news['img_url'], 
                     'entry_date':news['entry_date'], 
                     'short_link':news['short_link'],
                     'json_data':json_data,
                     }
             
             
-            news_title = insert_news(cursor, news['short_link'], news['title'], news['content'], json_data, news['entry_date'])
+            news_title = insert_news(cursor, news['short_link'], news['title'], news['content'], news['img_url'], json_data, news['entry_date'])
             
 
             
