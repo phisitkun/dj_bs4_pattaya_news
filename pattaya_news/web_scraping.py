@@ -1,14 +1,32 @@
 #### scrape_only ####
 
 from bs4 import BeautifulSoup
+from django.contrib.gis.db import models
 from datetime import date, datetime, timedelta
 from cloudinary import CloudinaryImage, uploader
+from cloudinary.models import CloudinaryField
+from django_better_admin_arrayfield.models.fields import ArrayField
 import psycopg2
 import re
 import requests
 import validators
 import json
-import urllib
+import cloudinary.uploader
+
+cloudinary.config( 
+  cloud_name = "dbvevdrrr", 
+  api_key = "647799521524182", 
+  api_secret = "vzE_C_Bo3E5i0MkI5yZSb3szqqM", 
+  secure = True
+)
+
+image = CloudinaryField("NewsImage", blank=True, null=True)
+
+def image_url(image):
+    if image is None:
+        return f"https://res.cloudinary.com/dbvevdrrr/image/upload/v1700725539/No_Image_Available_revtfe.jpg"
+    else:
+        return f"https://res.cloudinary.com/dqoetqzhq/{image}"
 
 
 ################################################################
@@ -71,6 +89,22 @@ def convert_to_json(py_object):
 
 
 
+############################## 
+# Function Upload News images
+##############################
+#
+def news_images(image_url):
+    
+        if validators.url(image_url):
+            try:
+                img_url = uploader.upload(image_url)
+                return img_url["public_id"]
+            except:
+                pass
+        else:
+            pass
+
+
 
 ##############################
 # Get content from Link URL
@@ -82,10 +116,10 @@ def get_content_json(link):
     soup = BeautifulSoup(response.text, "html.parser")
     title = soup.find("h1", attrs={"class":"entry-title"}).text
     short_link = soup.find("link",{"rel":"shortlink"}).get("href")
-    img_url = soup.find("img", attrs={"class":"entry-thumb"})["src"]
+    img_new = soup.find("img", attrs={"class":"entry-thumb"})["src"]
     entry_date = soup.find("time", class_="entry-date").text.strip()
     datetimestamp = convert_datetimestamp(entry_date)
-    # print("get entry_date ",total," => ",datetimestamp)
+    
     
     # iframe = soup.find("div", attrs={"class":"epyt-video-wrapper"}).text
     iframe = soup.find('iframe')
@@ -102,16 +136,14 @@ def get_content_json(link):
     else:
         pass
         
-    # Check image URL
-    if img_url != None:
-        if validators.url(img_url):
-            try:
-                img_url = uploader.upload(img_url)
-                img_url = img_url["public_id"]
-            except:
-                pass
-        else:
-            pass
+    
+    ##### upload image to cloudodinary
+ 
+    pic_upload_id = news_images(img_new) 
+    
+    img_new = str(pic_upload_id)
+    # print("img_new cloudodinary => ",img_new)
+    
     
     # Convert Array to String
     content_str = "".join(map(str, content))
@@ -126,7 +158,7 @@ def get_content_json(link):
     
     obj_data = {
             "title": title,
-            "img_url" : img_url,
+            "img_url" : img_new,
             "short_link": short_link,
             "content": content_final,
             "entry_date": datetimestamp,
@@ -187,7 +219,7 @@ if response.status_code == 200:
     soup = BeautifulSoup(response.text, "html.parser")
     # posts = soup.find_all("div", class_="td-block-row")
     limit = 10 ##### add limit parameter limit result #####
-    posts = soup.find_all('h3',class_='entry-title')    ### limit result (, limit=limit) 
+    posts = soup.find_all('h3',class_='entry-title', limit=limit)    ### limit result (, limit=limit) 
     total = 0
     news_all = {}
 
