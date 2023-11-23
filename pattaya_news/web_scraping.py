@@ -8,6 +8,7 @@ import re
 import requests
 import validators
 import json
+import urllib
 
 
 ################################################################
@@ -37,9 +38,21 @@ def create_connection():
 #
 def remove_html_tags(text):
     """Remove html tags from a string"""
-    clean = re.compile('<.*?>')
-    return re.sub(clean, '', text)
+    clean = re.compile("<.*?>")
+    return re.sub(clean, "", text)
 
+
+
+
+############################## 
+# Function Convert Datetime
+##############################
+#
+def convert_datetimestamp(var_date):
+    date_format = "%A, %d %B %Y, %H:%M"
+    date_obj = datetime.strptime(var_date, date_format)
+    datetimestamp = date_obj.strftime("%Y-%m-%d %H:%M:%S")
+    return datetimestamp
 
 
 
@@ -64,14 +77,22 @@ def convert_to_json(py_object):
 ##############################
 #
 def get_content_json(link):
-    response = requests.get(link)
-    soup = BeautifulSoup(response.text, 'html.parser')
-    title = soup.find('h1', attrs={"class":"entry-title"}).text
-    short_link = soup.find('link',{'rel':'shortlink'}).get('href')
-    img_url = soup.find('img', attrs={"class":"entry-thumb"})['src']
-    content = soup.find_all(["h3", "p"])
-    entry_date = post.find('time', class_='entry-date').text.strip()
     
+    response = requests.get(link)
+    soup = BeautifulSoup(response.text, "html.parser")
+    title = soup.find("h1", attrs={"class":"entry-title"}).text
+    short_link = soup.find("link",{"rel":"shortlink"}).get("href")
+    img_url = soup.find("img", attrs={"class":"entry-thumb"})["src"]
+    entry_date = soup.find("time", class_="entry-date").text.strip()
+    datetimestamp = convert_datetimestamp(entry_date)
+    # print("get entry_date ",total," => ",datetimestamp)
+    
+    # iframe = soup.find("div", attrs={"class":"epyt-video-wrapper"}).text
+    iframe = soup.find('iframe')
+    iframe.extract() ### avoid iframe tag
+    
+    content = soup.find_all(["h3", "p"])
+
     # Check content
     if (content != None):
         try:
@@ -93,30 +114,28 @@ def get_content_json(link):
             pass
     
     # Convert Array to String
-    content_str = ''.join(map(str, content))
+    content_str = "".join(map(str, content))
     
     content_final = remove_html_tags(content_str)
     
-    date_format = '%A, %d %B %Y, %H:%M'
-    date_obj = datetime.strptime(entry_date, date_format)
     
-    datetimestamp = date_obj.strftime('%Y-%m-%d %H:%M:%S')
+    
+    # date_format = "%A, %d %B %Y, %H:%M"
+    # date_obj = datetime.strptime(entry_date, date_format)
+    # datetimestamp = date_obj.strftime("%Y-%m-%d %H:%M:%S")
     
     obj_data = {
-            'title': title,
-            'img_url' : img_url,
-            'short_link': short_link,
-            'content': content_final,
-            'entry_date': datetimestamp,
+            "title": title,
+            "img_url" : img_url,
+            "short_link": short_link,
+            "content": content_final,
+            "entry_date": datetimestamp,
             }
-    
-    print("\njson_data => ",obj_data)
     
     json_data = convert_to_json(obj_data)  
     
+    
     return json_data
-
-
 
 
 
@@ -124,18 +143,27 @@ def get_content_json(link):
 # Function to insert news into the PostgreSQL database
 ############################################################
 #
-def insert_news(cursor, short_link, title, content, img_url, json, entry_date):
-    query = "INSERT INTO scraper_pagecontent (url, title, content, img_url, json, entry_date) VALUES (%s, %s, %s, %s, %s, %s) RETURNING title"
-    cursor.execute(query, (short_link, title, content, img_url, json, entry_date))
+def insert_news(cursor, short_link="", title="", content="", img_url="", json={}, entry_date=datetime):
+    
+    print("\n---------------------insert ",total,"---------------------")
+    
+    query = "INSERT INTO scraper_pagecontent (url, title, content, img_url, json, entry_date) VALUES (%s, %s, %s, %s, %s, %s) RETURNING title,url"
+    # cursor.execute(query, (short_link, title, content, img_url, json, entry_date))
+    
+    
+    try:
+        cursor.execute(query, (short_link, title, content, img_url, json, entry_date))
+    except Exception as err: ### show error detail
+        print ("Oops! An exception has occured:", err)
+        print ("Exception TYPE:", type(err))
+        
+    
     
     connection.commit()
     
-    return cursor.fetchone()[0]
+    return cursor.fetchone()
 
-# Create a connection to the PostgreSQL database
-connection = create_connection()
 
-cursor = connection.cursor()
 
 
 
@@ -144,57 +172,43 @@ cursor = connection.cursor()
 ##### Start Get Info from Website URL #####
 ###########################################
 #
-url = 'https://thepattayanews.com'
+
+# Create a connection to the PostgreSQL database
+connection = create_connection()
+cursor = connection.cursor()
+    
+    
+url = "https://thepattayanews.com"
 response = requests.get(url)
 today = date.today()
 news_entries = {} # Variable for news insert to DB
 
 if response.status_code == 200:
-    soup = BeautifulSoup(response.text, 'html.parser')
-    posts = soup.find_all('div', class_='td-block-row')
+    soup = BeautifulSoup(response.text, "html.parser")
+    # posts = soup.find_all("div", class_="td-block-row")
+    limit = 10 ##### add limit parameter limit result #####
+    posts = soup.find_all('h3',class_='entry-title')    ### limit result (, limit=limit) 
     total = 0
     news_all = {}
-    
 
     for post in posts:
         # get content by post
+        anchor_element = post.find('a')
+        link = anchor_element.get('href')
+        
         total = total+1
         try:
             
-            title = post.find('h3', attrs={"class":"entry-title"}).text
-            link = post.find('h3',attrs={"class":"entry-title"}).find('a').get('href')
-            entry_date = post.find('time', class_='entry-date').text.strip()
+            json_str = get_content_json(link)  ### return json string
+            news = json.loads(json_str)    ### return object
             
-            json_data = get_content_json(link)
-            news = json.loads(json_data)
+            # print("\ndisplay data before insert => ",news)
             
-            news = {
-                    'title':news['title'], 
-                    'content':news['content'], 
-                    'img_url':news['img_url'], 
-                    'entry_date':news['entry_date'], 
-                    'short_link':news['short_link'],
-                    'json_data':json_data,
-                    }
+            news_res = insert_news(cursor, news["short_link"], news["title"], news["content"], news["img_url"], json_str, news["entry_date"])
             
-            
-            news_title = insert_news(cursor, news['short_link'], news['title'], news['content'], news['img_url'], json_data, news['entry_date'])
-            
-
-            
-            
-            print("\nadd News ",total," title => ",news_title)
-            
-                        
-            # print("\nnew no. => ",total)
-            # print("title => ",title)
-            # print("content => ",json_data['content'])
-            # print("entry-date => ",json_data['entry_date'])
-            # # print("links => ",link)
-            # print("short_link => ",json_data['short_link'])
-            
-            # print("\n---------------------JSON ",total,"---------------------")
-            # print("\njson => ",content['json_data'])  
+            print("\n---------------------JSON ",total,"---------------------")
+            print("\n insert news => ",news_res[0])  
+            print("\n short_link news => ",news_res[1])  
             
             # print("---------------------END---------------------\n\n\n")
              
@@ -207,7 +221,8 @@ if response.status_code == 200:
 else:
     print(f"Failed to fetch content. Status code: {response.status_code}")
     
-    
+
+connection.close() 
     
     
     
