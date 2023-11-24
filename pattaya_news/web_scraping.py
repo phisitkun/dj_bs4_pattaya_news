@@ -144,15 +144,15 @@ def get_content_json(link):
     # print("before check_duplicates() call",short_link)
 
     # Check for duplicates
-    is_duplicated = check_duplicate_data(connection, short_link)  ### get short_link check duplicate in DB
+    is_duplicated = check_duplicate(connection, cursor, short_link)  ### get short_link check duplicate in DB
     if(is_duplicated):
         print("News is duplicated ",short_link)
     else:    
         print("News is not duplicated ",short_link)
-        #### upload image to cloudodinary
-        # pic_upload_id = news_images(img_new) 
-        # img_new = str(pic_upload_id)
-        # print("img_new cloudodinary => ",img_new)
+        ### upload image to cloudodinary
+        pic_upload_id = news_images(img_new) 
+        img_new = str(pic_upload_id)
+        print("img_new cloudodinary => ",img_new)
     
     
     # Convert Array to String
@@ -245,6 +245,22 @@ def check_duplicate_data(connection, short_link):
 
 
 
+
+def check_duplicate(connection, cursor, short_link):
+    connection = create_connection()
+    # Execute a SELECT query to check for duplicates
+    is_duplicate = cursor.execute("SELECT * FROM public.scraper_pagecontent WHERE url = %s", (short_link,))
+    existing_record = cursor.fetchone()
+    
+    if(existing_record):
+        return True
+    else:
+        return False
+
+
+
+
+
 ############################################################
 # Function to check for duplicate data in PostgreSQL
 # data_frame is data list for check duplicate
@@ -314,7 +330,7 @@ if response.status_code == 200:
             
             
             
-            # print("\ndisplay data before insert => ",news)
+            # print("\ndisplay json_str before insert => ",json_str)
             
             ##### Insert data if no duplicates
             if(json_str): ### check duplicate data from DB is TRUE / FALSE
