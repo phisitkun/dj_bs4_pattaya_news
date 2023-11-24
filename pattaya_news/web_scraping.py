@@ -13,6 +13,7 @@ from datetime import date, datetime, timedelta
 from cloudinary import CloudinaryImage, uploader
 from cloudinary.models import CloudinaryField
 from django_better_admin_arrayfield.models.fields import ArrayField
+from psycopg2 import sql
 
 cloudinary.config( 
   cloud_name = "dbvevdrrr", 
@@ -122,8 +123,7 @@ def get_content_json(link):
     
     is_duplicated = False
     table_name = 'scraper_pagecontent'
-    primary_key = 'url'
-    data_frame = ''  ### data from beautiful soup
+    field_check = 'url'
     
     
     # iframe = soup.find("div", attrs={"class":"epyt-video-wrapper"}).text
@@ -144,7 +144,7 @@ def get_content_json(link):
     # print("before check_duplicates() call",short_link)
 
     # Check for duplicates
-    is_duplicated = check_duplicate(connection, cursor, short_link)  ### get short_link check duplicate in DB
+    is_duplicated = check_duplicate(connection, cursor, short_link, table_name, field_check)  ### get short_link check duplicate in DB
     if(is_duplicated):
         print("News is duplicated ",short_link)
     else:    
@@ -215,41 +215,41 @@ def insert_news(cursor, short_link="", title="", content="", img_url="", json={}
 
 
 
-def check_duplicate_data(connection, short_link):
-    # print("input short_link => ",short_link)
-    connection = create_connection()
-    # Read data from PostgreSQL into a DataFrame
-    query = "SELECT url FROM public.scraper_pagecontent ORDER BY id ASC;"
-    df_postgres = pd.read_sql(query, connection)
-    # print("Check df_postgres  => ",df_postgres)
+# def check_duplicate_data(connection, short_link):
+#     # print("input short_link => ",short_link)
+#     connection = create_connection()
+#     # Read data from PostgreSQL into a DataFrame
+#     query = "SELECT url FROM public.scraper_pagecontent ORDER BY id ASC;"
+#     df_postgres = pd.read_sql(query, connection)
+#     # print("Check df_postgres  => ",df_postgres)
 
-    # Extract relevant data from the HTML (adjust as per your HTML structure)
-    extracted_data = {
-        'url': short_link
-        # Add more keys and extraction logic as needed
-    }
+#     # Extract relevant data from the HTML (adjust as per your HTML structure)
+#     extracted_data = {
+#         'url': short_link
+#         # Add more keys and extraction logic as needed
+#     }
 
-    # Convert extracted data to a DataFrame
-    df_extracted = pd.DataFrame([extracted_data])
+#     # Convert extracted data to a DataFrame
+#     df_extracted = pd.DataFrame([extracted_data])
 
-    # Check for duplicates based on the 'url' column
-    is_duplicate = any(df_postgres['url'].isin(df_extracted['url']))
+#     # Check for duplicates based on the 'url' column
+#     is_duplicate = any(df_postgres['url'].isin(df_extracted['url']))
 
-    # print("Check is_duplicate in func => ",is_duplicate)
-    # Close the database connection
-    connection.close()
+#     # print("Check is_duplicate in func => ",is_duplicate)
+#     # Close the database connection
+#     connection.close()
 
-    return is_duplicate
-
-
+#     return is_duplicate
 
 
 
 
-def check_duplicate(connection, cursor, short_link):
+
+
+def check_duplicate(connection, cursor, short_link, table_name, field_check):
     connection = create_connection()
     # Execute a SELECT query to check for duplicates
-    is_duplicate = cursor.execute("SELECT * FROM public.scraper_pagecontent WHERE url = %s", (short_link,))
+    is_duplicate = cursor.execute("SELECT * FROM public.scraper_pagecontent WHERE %s = %s", (field_check,short_link,))
     existing_record = cursor.fetchone()
     
     if(existing_record):
