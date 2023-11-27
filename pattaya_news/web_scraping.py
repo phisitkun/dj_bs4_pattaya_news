@@ -215,40 +215,6 @@ def insert_news(cursor, short_link="", title="", content="", img_url="", json={}
 
 
 
-
-
-
-
-
-# def check_duplicate_data(connection, short_link):
-#     # print("input short_link => ",short_link)
-#     connection = create_connection()
-#     # Read data from PostgreSQL into a DataFrame
-#     query = "SELECT url FROM public.scraper_pagecontent ORDER BY id ASC;"
-#     df_postgres = pd.read_sql(query, connection)
-#     # print("Check df_postgres  => ",df_postgres)
-
-#     # Extract relevant data from the HTML (adjust as per your HTML structure)
-#     extracted_data = {
-#         'url': short_link
-#         # Add more keys and extraction logic as needed
-#     }
-
-#     # Convert extracted data to a DataFrame
-#     df_extracted = pd.DataFrame([extracted_data])
-
-#     # Check for duplicates based on the 'url' column
-#     is_duplicate = any(df_postgres['url'].isin(df_extracted['url']))
-
-#     # print("Check is_duplicate in func => ",is_duplicate)
-#     # Close the database connection
-#     connection.close()
-
-#     return is_duplicate
-
-
-
-
 ############################################################
 # Function to check for duplicate data in PostgreSQL
 # data_frame is data list for check duplicate
@@ -287,7 +253,7 @@ if response.status_code == 200:
     soup = BeautifulSoup(response.text, "html.parser")
     # posts = soup.find_all("div", class_="td-block-row")
     limit = 20 ##### add limit parameter limit result #####
-    posts = soup.find_all('h3',class_='entry-title', limit=limit)    ### limit result (, limit=limit) 
+    posts = soup.find_all('h3',class_='entry-title')    ### limit result (, limit=limit) 
     total = 0
     news_all = {}
     
@@ -298,14 +264,11 @@ if response.status_code == 200:
         anchor_element = post.find('a')
         link = anchor_element.get('href')
         
-        total = total+1
+        
         try:
             
             json_str = get_content_json(link)  ### return json string
-            # print("\n json_str return => ",json_str)  
-            
-            
-            
+
             # print("\ndisplay json_str before insert => ",json_str)
             
             ##### Insert data if no duplicates
@@ -316,9 +279,10 @@ if response.status_code == 200:
                     print("\n not insert not content => ",news["content"])  
                     pass
                 else:
+                    total = total+1
                     news_res = insert_news(cursor, news["short_link"], news["title"], news["content"], news["img_url"], json_str, news["entry_date"])
                     print("\n---------------------JSON ",total,"---------------------")
-                    print("\n insert news => ",news_res[0])  
+                    print("\n insert news ( ",total," ) => ",news_res[0])  
                     print("\n short_link news => ",news_res[1])  
             else :
                 print("\n Not Insert News is Duplicated")  
