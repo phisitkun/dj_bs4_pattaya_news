@@ -133,19 +133,24 @@ def get_content_json(link):
     content = soup.find_all(["h3", "p"])
 
     # Check content
-    if (content != None):
-        try:
-            content = content
-        except:
-            pass
-    else:
-        pass
+    # if (content != None):
+    #     try:
+    #         content = content
+    #     except:
+    #         pass
+    # else:
+    #     pass
+    
     
     # print("before check_duplicates() call",short_link)
 
     # Check for duplicates
     is_duplicated = check_duplicate(connection, cursor, short_link, table_name, field_check)  ### get short_link check duplicate in DB
-    if(is_duplicated):
+    if(not content):
+        # print ("content => ",content)
+        print("News Content is Null ",short_link)
+    elif(is_duplicated):
+        # print ("content => ",content)
         print("News is duplicated ",short_link)
     else:    
         print("News is not duplicated ",short_link)
@@ -189,7 +194,7 @@ def get_content_json(link):
 #
 def insert_news(cursor, short_link="", title="", content="", img_url="", json={}, entry_date=datetime):
     
-    print("\n---------------------insert_news ",total,"---------------------")
+    print("\n---------------------insert ",total,"---------------------")
     
     query = "INSERT INTO scraper_pagecontent (url, title, content, img_url, json, entry_date) VALUES (%s, %s, %s, %s, %s, %s) RETURNING title,url"
     # cursor.execute(query, (short_link, title, content, img_url, json, entry_date))
@@ -198,10 +203,8 @@ def insert_news(cursor, short_link="", title="", content="", img_url="", json={}
     try:
         cursor.execute(query, (short_link, title, content, img_url, json, entry_date))
     except Exception as err: ### show error detail
-        
-        print ("News Duplicate Not Insert && Not Call Cloudodinary ",short_link)
-        # print ("Oops! An exception has occured:", err)
-        # print ("Exception TYPE:", type(err))
+        print ("Oops! An exception has occured:", err)
+        print ("Exception TYPE:", type(err))
         
     
     
@@ -246,12 +249,15 @@ def insert_news(cursor, short_link="", title="", content="", img_url="", json={}
 
 
 
-
+############################################################
+# Function to check for duplicate data in PostgreSQL
+# data_frame is data list for check duplicate
+############################################################
 
 def check_duplicate(connection, cursor, short_link, table_name, field_check):
     connection = create_connection()
     # Execute a SELECT query to check for duplicates
-    is_duplicate = cursor.execute("SELECT * FROM public.scraper_pagecontent WHERE %s = %s", (field_check,short_link,))
+    is_duplicate = cursor.execute("SELECT * FROM public.scraper_pagecontent WHERE url = %s", (short_link,))
     existing_record = cursor.fetchone()
     
     if(existing_record):
@@ -259,38 +265,6 @@ def check_duplicate(connection, cursor, short_link, table_name, field_check):
     else:
         return False
 
-
-
-
-
-############################################################
-# Function to check for duplicate data in PostgreSQL
-# data_frame is data list for check duplicate
-############################################################
-#
-
-# def check_duplicates(connection, table_name, primary_key, short_link):
-#     # Assuming 'connection' is a psycopg2 connection object
-#     print("check_duplicates() call ",short_link)
-
-#     # Concatenate primary key columns to check for duplicates
-#     query = f"SELECT {primary_key} FROM {table_name};"
-    
-#     connection = create_connection()
-#     sql_query = "SELECT url FROM public.scraper_pagecontent ORDER BY id ASC "
-    
-#     # existing_data = pd.read_sql_query(query, connection) ### get all lists data from DB
-#     # print("existing_data => ",existing_data)
-
-#     # Check for duplicates
-#     duplicates = data_frame[data_frame.duplicated(subset=primary_key, keep=False)]
-#     print("duplicates return => ",duplicates)
-
-#     if not duplicates.empty:
-#         print("Duplicate data found. Aborting further actions.")
-#         return False
-
-#     return True
 
 
 
@@ -312,7 +286,7 @@ news_entries = {} # Variable for news insert to DB
 if response.status_code == 200:
     soup = BeautifulSoup(response.text, "html.parser")
     # posts = soup.find_all("div", class_="td-block-row")
-    limit = 18 ##### add limit parameter limit result #####
+    limit = 20 ##### add limit parameter limit result #####
     posts = soup.find_all('h3',class_='entry-title', limit=limit)    ### limit result (, limit=limit) 
     total = 0
     news_all = {}
@@ -338,14 +312,14 @@ if response.status_code == 200:
             if(json_str): ### check duplicate data from DB is TRUE / FALSE
                 news = json.loads(json_str)    ### return object
                 
-                if(news["short_link"] != '' or news["content"] != '' or news["title"] != ''): ### check duplicate data from DB is TRUE / FALSE
+                if(not news["content"]):
+                    print("\n not insert not content => ",news["content"])  
+                    pass
+                else:
                     news_res = insert_news(cursor, news["short_link"], news["title"], news["content"], news["img_url"], json_str, news["entry_date"])
                     print("\n---------------------JSON ",total,"---------------------")
                     print("\n insert news => ",news_res[0])  
                     print("\n short_link news => ",news_res[1])  
-                else :
-                    print("\n Not Insert New Not Have Content")  
-                        
             else :
                 print("\n Not Insert News is Duplicated")  
             # Close the connection
